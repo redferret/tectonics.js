@@ -40,21 +40,31 @@ TectonicsModeling.get_subductable_density = function(age, density) {
     return density;
 }
 
-TectonicsModeling.get_density = function(sima, sial, age, result, scratch) {
+TectonicsModeling.get_density = function(sima, sial, sediment, age, result, scratch) {
 	result = result || Float32Raster(sima.grid);
 	scratch = scratch || Float32Raster(sima.grid);
+	scratch2 = Float32Raster(sima.grid);
 
 	// NOTE: result does double duty for performance reasons
 	var sima_density = result;
 	TectonicsModeling.get_subductable_density(age, sima_density);
+
 	var sima_thickness = result;
 	ScalarField.div_field(sima, sima_density, sima_thickness);
+
 	var sial_thickness = scratch;
 	ScalarField.div_scalar(sial, 2700, sial_thickness);
+
+	var sediment_thickness = scratch2;
+	ScalarField.div_scalar(sediment, 2500, sediment_thickness);
+
 	var total_thickness = scratch;
 	ScalarField.add_field(sial_thickness, sima_thickness, total_thickness);
+	// ScalarField.add_field(total_thickness, sediment_thickness, total_thickness);
+
 	var total_mass = result;
 	ScalarField.add_field(sima, sial, total_mass);
+	
 	var total_density = result;
 	ScalarField.div_field(total_mass, total_thickness, total_density);
 
