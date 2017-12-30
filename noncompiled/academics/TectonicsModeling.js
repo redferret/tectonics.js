@@ -166,6 +166,8 @@ TectonicsModeling.get_weathering_rate = function(sial, sediment, displacement, s
 
 	ScalarField.mult_field(result, bedrock_coverage, result);
 	
+	ScalarField.min_field(result, sial, result);
+	ScalarField.max_scalar(result, 0, result);
 	return result;
 }
 // "erosion" is the process by which sediment is transported
