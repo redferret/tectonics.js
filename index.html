@@ -797,21 +797,19 @@
 				}
 				var max = Float32Dataset.max(field);
 				var min = Float32Dataset.min(field);
+				var range = max-min;
 				var median = Float32Dataset.median(field);
-				var bin_size = Math.pow(10, Math.floor(Math.log10(max-min))-1);
-				var bin_num = Math.ceil((max-min)/bin_size);
-				var plot_range = bin_size * bin_num;
-				var plot_middle = Math.round(median/bin_size)*bin_size;
-				var plot_min = plot_middle - bin_size * Math.round(bin_num/2);
+				var bin_size = Math.pow(10, Math.floor(Math.log10(range))-1);
+				var bin_num = Math.ceil(range/bin_size);
 				var bin_min = 0;
 				var bin_max = 0;
-				var bin_mag = 0;
+				var plot_min = bin_size * Math.floor(min / bin_size);
 				var x = [];
 				var y = [];
 				for (var i = 0; i < bin_num; i++) {
 					bin_min = plot_min + i*bin_size;
 					bin_max = plot_min + (i+1)*bin_size;
-					x[i] = Uint8Dataset.sum(ScalarField.between_scalars(field, bin_min, bin_max))
+					x[i] = Uint8Dataset.sum(ScalarField.between_scalars(field, bin_min, bin_max));
 					y[i] = bin_min;
 				}
 				_this.min = min;
