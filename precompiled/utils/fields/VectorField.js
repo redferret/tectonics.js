@@ -702,7 +702,8 @@ VectorField.divergence = function(vector_field, result) {
 	var x = vector_field.x;
 	var y = vector_field.y;
 	var z = vector_field.z;
-	
+
+	Float32Raster.fill(result, 0);
 	for (var i = 0, li = arrows.length; i<li; i++) {
 		arrow_i_from = arrows[i][0];
 		arrow_i_to = arrows[i][1];

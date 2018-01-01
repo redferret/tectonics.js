@@ -909,6 +909,9 @@ ScalarField.differential = function (scalar_field, result) {
   var x = result.x;
   var y = result.y;
   var z = result.z;
+  Float32Raster.fill(x, 0);
+  Float32Raster.fill(y, 0);
+  Float32Raster.fill(z, 0);
   for (var i = 0, li = arrows.length; i < li; i++) {
     arrow = arrows[i];
     from = arrow[0];
@@ -957,6 +960,10 @@ ScalarField.gradient = function (scalar_field, result) {
   //  each component of the cartesian coordinate basis corresponds to a "neighbor" in our approach.
   // We create a weighted sum between them, weighting by the derivative for each. 
   //  There are already 3 "neighbors", one for each coordinate basis, so we don't do anything.
+  //
+  Float32Raster.fill(x, 0);
+  Float32Raster.fill(y, 0);
+  Float32Raster.fill(z, 0);
   for (var i = 0, li = arrows.length; i < li; i++) {
     arrow = arrows[i];
     scalar_field_derivative = (scalar_field[arrow[1]] - scalar_field[arrow[0]]) / arrow_distances[i];
@@ -981,6 +988,7 @@ ScalarField.average_difference = function (scalar_field, result) {
   if (scalar_field === result) { throw "scalar_field" + ' and ' + "result" + ' cannot be the same'; }
   var arrows = scalar_field.grid.arrows;
   var arrow
+  Float32Raster.fill(result, 0);
   for (var i=0, li=arrows.length; i<li; ++i) {
       arrow = arrows[i];
       result[arrow[0]] += scalar_field[arrow[1]] - scalar_field[arrow[0]];
@@ -1019,6 +1027,7 @@ ScalarField.laplacian = function (scalar_field, result) {
   if (scalar_field === result) { throw "scalar_field" + ' and ' + "result" + ' cannot be the same'; }
   var arrows = scalar_field.grid.arrows;
   var arrow
+  Float32Raster.fill(result, 0);
   for (var i=0, li=arrows.length; i<li; ++i) {
       arrow = arrows[i];
       result[arrow[0]] += scalar_field[arrow[1]] - scalar_field[arrow[0]];
@@ -1042,6 +1051,7 @@ ScalarField.diffusion_by_constant = function (scalar_field, constant, result, sc
   var laplacian = scratch;
   var arrows = scalar_field.grid.arrows;
   var arrow
+  Float32Raster.fill(laplacian, 0);
   for (var i=0, li=arrows.length; i<li; ++i) {
       arrow = arrows[i];
       laplacian[arrow[0]] += scalar_field[arrow[1]] - scalar_field[arrow[0]];
@@ -1066,6 +1076,7 @@ ScalarField.diffusion_by_field = function (scalar_field1, scalar_field2, result,
   var laplacian = scratch;
   var arrows = scalar_field1.grid.arrows;
   var arrow
+  Float32Raster.fill(laplacian, 0);
   for (var i=0, li=arrows.length; i<li; ++i) {
       arrow = arrows[i];
       laplacian[arrow[0]] += scalar_field1[arrow[1]] - scalar_field1[arrow[0]];
@@ -2232,6 +2243,7 @@ VectorField.divergence = function(vector_field, result) {
  var x = vector_field.x;
  var y = vector_field.y;
  var z = vector_field.z;
+ Float32Raster.fill(result, 0);
  for (var i = 0, li = arrows.length; i<li; i++) {
   arrow_i_from = arrows[i][0];
   arrow_i_to = arrows[i][1];
