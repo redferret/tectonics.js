@@ -371,11 +371,11 @@ ScalarField.differential = function (scalar_field, result) {
 };
 ScalarField.gradient = function (scalar_field, result) {
   result = result || VectorRaster(scalar_field.grid);
+  scratch = scratch || VectorRaster(scalar_field.grid);
 
   ASSERT_IS_ARRAY(scalar_field, Float32Array)
   ASSERT_IS_VECTOR_RASTER(result)
 
-  var scalar_field_derivative = 0;
   var dpos = scalar_field.grid.pos_arrow_differential;
   var dx = dpos.x;
   var dy = dpos.y;
@@ -383,9 +383,18 @@ ScalarField.gradient = function (scalar_field, result) {
   var arrows = scalar_field.grid.arrows;
   var arrow = [];
   var arrow_distances = scalar_field.grid.pos_arrow_distances;
+  var max_slope = scratch;
   var x = result.x;
   var y = result.y;
   var z = result.z;
+  var abs = Math.abs;
+  var arrow_distance = 0;
+  var slope = 0;
+  var slope_magnitude = 0;
+  var slope_adjust = 0;
+  var from = 0;
+  var to = 0;
+  //
   // NOTE: 
   // The naive implementation is to estimate the gradient based on each individual neighbor,
   //  then take the average between the estimates.
@@ -401,24 +410,24 @@ ScalarField.gradient = function (scalar_field, result) {
   //  each component of the cartesian coordinate basis corresponds to a "neighbor" in our approach.
   // We create a weighted sum between them, weighting by the derivative for each. 
   //  There are already 3 "neighbors", one for each coordinate basis, so we don't do anything.
-  //
+  Float32Raster.fill(max_slope, 0);
   Float32Raster.fill(x, 0);
   Float32Raster.fill(y, 0);
   Float32Raster.fill(z, 0);
   for (var i = 0, li = arrows.length; i < li; i++) {
     arrow = arrows[i];
-    scalar_field_derivative = (scalar_field[arrow[1]] - scalar_field[arrow[0]]) / arrow_distances[i];
-    x[arrow[0]] += (dx[i] * scalar_field_derivative);
-    y[arrow[0]] += (dy[i] * scalar_field_derivative);
-    z[arrow[0]] += (dz[i] * scalar_field_derivative);
-  }
-  var neighbor_count = scalar_field.grid.neighbor_count;
-  var neighbor_count_i = 0;
-  for (var i = 0, li = neighbor_count.length; i < li; i++) {
-    neighbor_count_i = neighbor_count[i];
-    x[i] *= 3/neighbor_count_i;
-    y[i] *= 3/neighbor_count_i;
-    z[i] *= 3/neighbor_count_i;
+    from = arrow[0];
+    to = arrow[1];
+    arrow_distance = arrow_distances[i];
+    slope = (scalar_field[to] - scalar_field[from]) / arrow_distance;
+    slope_magnitude = abs(slope);
+    if (slope_magnitude > max_slope[from]) {
+      max_slope[from] = slope_magnitude;
+      slope_adjust = slope/arrow_distance;
+      x[from] = dx[i] * slope_adjust;
+      y[from] = dy[i] * slope_adjust;
+      z[from] = dz[i] * slope_adjust;
+    }
   }
   return result;
 };
