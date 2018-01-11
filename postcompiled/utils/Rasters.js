@@ -81,6 +81,8 @@ function Grid(template, options){
  this.arrows = arrows;
  this.arrow_lookup = arrow_lookup;
  this.pos_arrow_differential = VectorField.arrow_differential(this.pos);
+    this.pos_arrow_differential_normalized = VectorRaster.OfLength(arrows.length, undefined)
+    this.pos_arrow_differential_normalized = VectorField.normalize(this.pos_arrow_differential, this.pos_arrow_differential_normalized);
  this.pos_arrow_distances = Float32Raster.OfLength(arrows.length, undefined)
  VectorField.magnitude(this.pos_arrow_differential, this.pos_arrow_distances);
  this.average_distance = Float32Dataset.average(this.pos_arrow_distances);
@@ -932,9 +934,9 @@ ScalarField.differential = function (scalar_field, result) {
 };
 ScalarField.gradient = function (scalar_field, result) {
   result = result || VectorRaster(scalar_field.grid);
+  scratch = scratch || VectorRaster(scalar_field.grid);
   if (!(scalar_field instanceof Float32Array)) { throw "scalar_field" + ' is not a ' + "Float32Array"; }
   if (!(result.x !== void 0) && !(result.x instanceof Float32Array)) { throw "result" + ' is not a vector raster'; }
-  var scalar_field_derivative = 0;
   var dpos = scalar_field.grid.pos_arrow_differential;
   var dx = dpos.x;
   var dy = dpos.y;
@@ -942,9 +944,18 @@ ScalarField.gradient = function (scalar_field, result) {
   var arrows = scalar_field.grid.arrows;
   var arrow = [];
   var arrow_distances = scalar_field.grid.pos_arrow_distances;
+  var max_slope = scratch;
   var x = result.x;
   var y = result.y;
   var z = result.z;
+  var abs = Math.abs;
+  var arrow_distance = 0;
+  var slope = 0;
+  var slope_magnitude = 0;
+  var slope_adjust = 0;
+  var from = 0;
+  var to = 0;
+  //
   // NOTE: 
   // The naive implementation is to estimate the gradient based on each individual neighbor,
   //  then take the average between the estimates.
@@ -960,24 +971,24 @@ ScalarField.gradient = function (scalar_field, result) {
   //  each component of the cartesian coordinate basis corresponds to a "neighbor" in our approach.
   // We create a weighted sum between them, weighting by the derivative for each. 
   //  There are already 3 "neighbors", one for each coordinate basis, so we don't do anything.
-  //
+  Float32Raster.fill(max_slope, 0);
   Float32Raster.fill(x, 0);
   Float32Raster.fill(y, 0);
   Float32Raster.fill(z, 0);
   for (var i = 0, li = arrows.length; i < li; i++) {
     arrow = arrows[i];
-    scalar_field_derivative = (scalar_field[arrow[1]] - scalar_field[arrow[0]]) / arrow_distances[i];
-    x[arrow[0]] += (dx[i] * scalar_field_derivative);
-    y[arrow[0]] += (dy[i] * scalar_field_derivative);
-    z[arrow[0]] += (dz[i] * scalar_field_derivative);
-  }
-  var neighbor_count = scalar_field.grid.neighbor_count;
-  var neighbor_count_i = 0;
-  for (var i = 0, li = neighbor_count.length; i < li; i++) {
-    neighbor_count_i = neighbor_count[i];
-    x[i] *= 3/neighbor_count_i;
-    y[i] *= 3/neighbor_count_i;
-    z[i] *= 3/neighbor_count_i;
+    from = arrow[0];
+    to = arrow[1];
+    arrow_distance = arrow_distances[i];
+    slope = (scalar_field[to] - scalar_field[from]) / arrow_distance;
+    slope_magnitude = abs(slope);
+    if (slope_magnitude > max_slope[from]) {
+      max_slope[from] = slope_magnitude;
+      slope_adjust = slope/arrow_distance;
+      x[from] = dx[i] * slope_adjust;
+      y[from] = dy[i] * slope_adjust;
+      z[from] = dz[i] * slope_adjust;
+    }
   }
   return result;
 };
@@ -2206,14 +2217,14 @@ VectorField.arrow_differential = function(vector_field, result) {
  var y = result.y;
  var z = result.z;
  var arrows = vector_field.grid.arrows;
- var arrow_i_from = 0;
- var arrow_i_to = 0;
+ var from = 0;
+ var to = 0;
  for (var i = 0, li = arrows.length; i<li; i++) {
-  arrow_i_from = arrows[i][0];
-  arrow_i_to = arrows[i][1];
-  x[i] = x1[arrow_i_to] - x1[arrow_i_from];
-  y[i] = y1[arrow_i_to] - y1[arrow_i_from];
-  z[i] = z1[arrow_i_to] - z1[arrow_i_from];
+  from = arrows[i][0];
+  to = arrows[i][1];
+  x[i] = x1[to] - x1[from];
+  y[i] = y1[to] - y1[from];
+  z[i] = z1[to] - z1[from];
  }
  return result;
 }
@@ -2229,27 +2240,35 @@ VectorField.arrow_differential = function(vector_field, result) {
 //  ∇⋅f =  1/2 (fx(x+dx) - fx(x-dx)) / dx + 
 //         1/2 (fy(x+dy) - fy(x-dy)) / dy  
 //
-// Think of it as taking the average difference between two pairs of vertices. 
-// That means if we have an arbitrary number of neighbors,  
-// we find the average difference per unit distance. 
+// Think of it as taking the average change in projection:
+// For each neighbor:
+//   draw a vector to the neighbor
+//   find the projection between that vector and the field, 
+//   find how the projection changes along that vector
+//   find the average change across all neighbors
 VectorField.divergence = function(vector_field, result) {
  result = result || Float32Raster(vector_field.grid);
  if (!(vector_field.x !== void 0) && !(vector_field.x instanceof Float32Array)) { throw "vector_field" + ' is not a vector raster'; }
  if (!(result instanceof Float32Array)) { throw "result" + ' is not a ' + "Float32Array"; }
- var dpos = vector_field.grid.pos_arrow_distances;
+ var dlength = vector_field.grid.pos_arrow_distances;
  var arrows = vector_field.grid.arrows;
- var arrow_i_from = 0;
- var arrow_i_to = 0;
  var x = vector_field.x;
  var y = vector_field.y;
  var z = vector_field.z;
+ var arrow_pos_diff_normalized = vector_field.grid.pos_arrow_differential_normalized;
+ var dxhat = arrow_pos_diff_normalized.x;
+ var dyhat = arrow_pos_diff_normalized.y;
+ var dzhat = arrow_pos_diff_normalized.z;
+ var from = 0;
+ var to = 0;
  Float32Raster.fill(result, 0);
  for (var i = 0, li = arrows.length; i<li; i++) {
-  arrow_i_from = arrows[i][0];
-  arrow_i_to = arrows[i][1];
-  result[arrow_i_from] += ( x[arrow_i_to] - x[arrow_i_from] +
-           y[arrow_i_to] - y[arrow_i_from] +
-           z[arrow_i_to] - z[arrow_i_from] ) / dpos[i] ;
+  from = arrows[i][0];
+  to = arrows[i][1];
+        result[from] +=
+    ( (x[to] - x[from]) * dxhat[i]
+     +(y[to] - y[from]) * dyhat[i]
+     +(z[to] - z[from]) * dzhat[i]) / dlength[i];
  }
  var neighbor_count = vector_field.grid.neighbor_count;
  var average_distance = vector_field.grid.average_distance;
