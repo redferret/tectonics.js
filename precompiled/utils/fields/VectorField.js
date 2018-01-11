@@ -661,14 +661,14 @@ VectorField.arrow_differential = function(vector_field, result) {
 	var z = result.z;
 
 	var arrows = vector_field.grid.arrows;
-	var arrow_i_from = 0;
-	var arrow_i_to = 0;
+	var from = 0;
+	var to = 0;
 	for (var i = 0, li = arrows.length; i<li; i++) {
-		arrow_i_from = arrows[i][0];
-		arrow_i_to = arrows[i][1];
-		x[i] = x1[arrow_i_to] - x1[arrow_i_from];
-		y[i] = y1[arrow_i_to] - y1[arrow_i_from];
-		z[i] = z1[arrow_i_to] - z1[arrow_i_from];
+		from = arrows[i][0];
+		to = arrows[i][1];
+		x[i] = x1[to] - x1[from];
+		y[i] = y1[to] - y1[from];
+		z[i] = z1[to] - z1[from];
 	}
 	return result;
 }
@@ -684,32 +684,42 @@ VectorField.arrow_differential = function(vector_field, result) {
 //  ∇⋅f =  1/2 (fx(x+dx) - fx(x-dx)) / dx + 
 //         1/2 (fy(x+dy) - fy(x-dy)) / dy  
 //
-// Think of it as taking the average difference between two pairs of vertices. 
-// That means if we have an arbitrary number of neighbors,  
-// we find the average difference per unit distance. 
+// Think of it as taking the average change in projection:
+// For each neighbor:
+//   draw a vector to the neighbor
+//   find the projection between that vector and the field, 
+//   find how the projection changes along that vector
+//   find the average change across all neighbors
 VectorField.divergence = function(vector_field, result) {
 	result = result || Float32Raster(vector_field.grid);
 	
 	ASSERT_IS_VECTOR_RASTER(vector_field)
 	ASSERT_IS_ARRAY(result, Float32Array)
 
-	var dpos = vector_field.grid.pos_arrow_distances;
+	var dlength = vector_field.grid.pos_arrow_distances;
 
 	var arrows = vector_field.grid.arrows;
-	var arrow_i_from = 0;
-	var arrow_i_to = 0;
 
 	var x = vector_field.x;
 	var y = vector_field.y;
 	var z = vector_field.z;
 
+	var arrow_pos_diff_normalized = vector_field.grid.pos_arrow_differential_normalized;
+	var dxhat = arrow_pos_diff_normalized.x;
+	var dyhat = arrow_pos_diff_normalized.y;
+	var dzhat = arrow_pos_diff_normalized.z;
+
+	var from = 0;
+	var to = 0;
 	Float32Raster.fill(result, 0);
 	for (var i = 0, li = arrows.length; i<li; i++) {
-		arrow_i_from = arrows[i][0];
-		arrow_i_to = arrows[i][1];
-		result[arrow_i_from] += ( x[arrow_i_to] - x[arrow_i_from] + 
-					 			  y[arrow_i_to] - y[arrow_i_from] + 
-					 			  z[arrow_i_to] - z[arrow_i_from] ) / dpos[i] ;
+		from = arrows[i][0];
+		to = arrows[i][1];
+
+        result[from] += 
+		  ( (x[to] - x[from]) * dxhat[i]   
+		   +(y[to] - y[from]) * dyhat[i]   
+		   +(z[to] - z[from]) * dzhat[i]) / dlength[i];
 	}
 
 	var neighbor_count = vector_field.grid.neighbor_count;
