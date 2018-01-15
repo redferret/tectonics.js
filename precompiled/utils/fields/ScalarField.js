@@ -369,10 +369,14 @@ ScalarField.differential = function (scalar_field, result) {
   }
   return result;
 };
-ScalarField.gradient = function (scalar_field, result) {
+ScalarField.gradient = function (scalar_field, result, scratch, scratch2) {
   result = result || VectorRaster(scalar_field.grid);
   scratch = scratch || VectorRaster(scalar_field.grid);
+  scratch2 = scratch2 || Float32Raster(scalar_field.grid);
 
+  ASSERT_IS_ARRAY(scalar_field, Float32Array)
+  ASSERT_IS_ARRAY(scratch, Float32Array)
+  ASSERT_IS_ARRAY(scratch2, Float32Array)
   ASSERT_IS_ARRAY(scalar_field, Float32Array)
   ASSERT_IS_VECTOR_RASTER(result)
 
@@ -387,13 +391,12 @@ ScalarField.gradient = function (scalar_field, result) {
   var x = result.x;
   var y = result.y;
   var z = result.z;
-  var abs = Math.abs;
   var arrow_distance = 0;
   var slope = 0;
   var slope_magnitude = 0;
-  var slope_adjust = 0;
   var from = 0;
   var to = 0;
+  var max_slope_from = 0;
   //
   // NOTE: 
   // The naive implementation is to estimate the gradient based on each individual neighbor,
@@ -414,20 +417,32 @@ ScalarField.gradient = function (scalar_field, result) {
   Float32Raster.fill(x, 0);
   Float32Raster.fill(y, 0);
   Float32Raster.fill(z, 0);
+
+  //Step 1: find direction and max slope
+  // To find direction, take weighted sum of position differentials, weighted by magnitude
   for (var i = 0, li = arrows.length; i < li; i++) {
     arrow = arrows[i];
     from = arrow[0];
     to = arrow[1];
-    arrow_distance = arrow_distances[i];
-    slope = (scalar_field[to] - scalar_field[from]) / arrow_distance;
-    slope_magnitude = abs(slope);
-    if (slope_magnitude > max_slope[from]) {
-      max_slope[from] = slope_magnitude;
-      slope_adjust = slope/arrow_distance;
-      x[from] = dx[i] * slope_adjust;
-      y[from] = dy[i] * slope_adjust;
-      z[from] = dz[i] * slope_adjust;
+    slope = (scalar_field[to] - scalar_field[from]) / arrow_distances[i];
+    x[from] += (dx[i] * slope);
+    y[from] += (dy[i] * slope);
+    z[from] += (dz[i] * slope);
+
+    max_slope_from = max_slope[from];
+    if (slope * slope > max_slope_from * max_slope_from) {
+      max_slope[from] = slope;
     }
+  }
+  //Step 2: find magnitude, normalize vectors and scale by greatest slope
+  var magnitude = scratch2;
+  VectorField.magnitude(result, magnitude);
+  var slope_adjust = 0;
+  for (var i = 0, li = x.length; i < li; i++) {
+    slope_adjust = max_slope[i] / (magnitude[i]||1);
+    x[i] *= slope_adjust;
+    y[i] *= slope_adjust;
+    z[i] *= slope_adjust;
   }
   return result;
 };
