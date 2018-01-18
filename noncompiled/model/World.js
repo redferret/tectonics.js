@@ -215,7 +215,7 @@ var World = (function() {
 		var RIFT = true;
 		var DETACH = true;
 		var WEATHER = true;
-		var ERODE = false;
+		var ERODE = true;
 		var ACCRETE = true;
 
 	    //shared variables for detaching and rifting
@@ -275,7 +275,6 @@ var World = (function() {
 		        }
 	        }
 
-
 	        //aging
 			ScalarField.add_scalar(plate.subductable_age, timestep, 								plate.subductable_age);
 		}
@@ -294,11 +293,8 @@ var World = (function() {
 			//weathering
 			if(WEATHER) {
 				resample_f32(globalized_weathering, global_ids_of_local_cells,				localized_weathering);
-
 				add_term 	(plate.unsubductable_sediment, localized_weathering, localized_is_on_top,		plate.unsubductable_sediment);
-
 				sub_term 	(plate.unsubductable, localized_weathering, localized_is_on_top,		plate.unsubductable);
-
 			}
 			//erode
 			if(ERODE) {
@@ -319,7 +315,7 @@ var World = (function() {
 	World.prototype.ocean = 
 	 new RockColumn({
 		elevation: 	-3682,	// Charette & Smith 2010
-		subductable: 7100*2890, 	
+		subductable: 7100*2890, 
 		// thickness +/- 800, from White McKenzie and O'nions 1992
 		// unsubductable: 		100, // This can be set above zero to "cheat" on unsubductable mass conservation
 		density: 	2890	// Carlson & Raskin 1984
