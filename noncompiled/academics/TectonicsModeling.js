@@ -18,7 +18,7 @@ TectonicsModeling.get_thickness = function(sima, sial, sediment, age, thickness,
 	
 	ScalarField.div_field(sima, sima_density, thickness);
 	ScalarField.add_scalar_term(thickness, sial, 1/2700, thickness);
-	ScalarField.add_scalar_term(thickness, sediment, 1/2700, thickness);
+	ScalarField.add_scalar_term(thickness, sediment, 1/2500, thickness);
 
 	return thickness;
 }
@@ -49,7 +49,7 @@ TectonicsModeling.get_density = function(sima, sial, sediment, age, result, scra
 	ScalarField.div_scalar(sial, 2700, sial_thickness);
 
 	var sediment_thickness = scratch2;
-	ScalarField.div_scalar(sediment, 2700, sediment_thickness);
+	ScalarField.div_scalar(sediment, 2500, sediment_thickness);
 
 	var total_thickness = scratch;
 	ScalarField.add_field(sial_thickness, sima_thickness, total_thickness);
@@ -130,7 +130,7 @@ TectonicsModeling.get_weathering_rate = function(sial, sediment, displacement, s
 	// ^^^ the sediment thickness (in meters) at which bedrock weathering no longer occurs
 
 	var sial_density = 2700; // kg/m^3
-	var sediment_density = 2700 // kg/m^2, from Simoes et al. 2010
+	var sediment_density = 2500 // kg/m^2, from Simoes et al. 2010
 	var earth_surface_gravity = 9.8; // m/s^2
 	var surface_gravity = 9.8; // m/s^2
 	
@@ -176,7 +176,7 @@ TectonicsModeling.get_erosion_rate = function(sediment, displacement, sealevel, 
 	var earth_surface_gravity = 9.8; // m/s^2
 	var surface_gravity = 9.8; // m/s^2
 
-	var sediment_density = 2700 // kg/m^2, from Simoes et al. 2010 
+	var sediment_density = 2500 // kg/m^2, from Simoes et al. 2010 
 	
 	var water_height = ScalarField.max_scalar(displacement, sealevel);
 	var gradient = ScalarField.gradient(water_height);
