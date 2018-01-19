@@ -371,7 +371,7 @@ ScalarField.differential = function (scalar_field, result) {
 };
 ScalarField.gradient = function (scalar_field, result, scratch, scratch2) {
   result = result || VectorRaster(scalar_field.grid);
-  scratch = scratch || VectorRaster(scalar_field.grid);
+  scratch = scratch || Float32Raster(scalar_field.grid);
   scratch2 = scratch2 || Float32Raster(scalar_field.grid);
 
   ASSERT_IS_ARRAY(scalar_field, Float32Array)
@@ -380,34 +380,34 @@ ScalarField.gradient = function (scalar_field, result, scratch, scratch2) {
   ASSERT_IS_ARRAY(scalar_field, Float32Array)
   ASSERT_IS_VECTOR_RASTER(result)
 
-  var pos = scalar_field.grid.pos;
-  var ix = pos.x;
-  var iy = pos.y;
-  var iz = pos.z;
-  var dpos_hat = scalar_field.grid.pos_arrow_differential_normalized;
-  var dxhat = dpos_hat.x;
-  var dyhat = dpos_hat.y;
-  var dzhat = dpos_hat.z;
-  var dpos = scalar_field.grid.pos_arrow_differential;
-  var dx = dpos.x;
-  var dy = dpos.y;
-  var dz = dpos.z;
-  var arrows = scalar_field.grid.arrows;
-  var arrow = [];
-  var dlength = scalar_field.grid.pos_arrow_distances;
-  var neighbor_count = scalar_field.grid.neighbor_count;
-  var average = scratch;
-  var x = result.x;
-  var y = result.y;
-  var z = result.z;
-  var arrow_distance = 0;
-  var average_distance = scalar_field.grid.average_distance;
-  var slope = 0;
-  var slope_magnitude = 0;
-  var from = 0;
-  var to = 0;
-  var max_slope_from = 0;
-  var PI = Math.PI;
+  var pos = scalar_field.grid.pos; 
+  var ix = pos.x; 
+  var iy = pos.y; 
+  var iz = pos.z; 
+  var dpos_hat = scalar_field.grid.pos_arrow_differential_normalized; 
+  var dxhat = dpos_hat.x; 
+  var dyhat = dpos_hat.y; 
+  var dzhat = dpos_hat.z; 
+  var dpos = scalar_field.grid.pos_arrow_differential; 
+  var dx = dpos.x; 
+  var dy = dpos.y; 
+  var dz = dpos.z; 
+  var arrows = scalar_field.grid.arrows; 
+  var arrow = []; 
+  var dlength = scalar_field.grid.pos_arrow_distances; 
+  var neighbor_count = scalar_field.grid.neighbor_count; 
+  var average = scratch; 
+  var x = result.x; 
+  var y = result.y; 
+  var z = result.z; 
+  var arrow_distance = 0; 
+  var average_distance = scalar_field.grid.average_distance; 
+  var slope = 0; 
+  var slope_magnitude = 0; 
+  var from = 0; 
+  var to = 0; 
+  var max_slope_from = 0; 
+  var PI = Math.PI; 
   //
   // NOTE: 
   // The naive implementation is to estimate the gradient based on each individual neighbor,
@@ -426,21 +426,21 @@ ScalarField.gradient = function (scalar_field, result, scratch, scratch2) {
   Float32Raster.fill(y, 0);
   Float32Raster.fill(z, 0);
   var average_value = 0;
-  for (var i = 0, li = arrows.length; i < li; i++) {
-    arrow = arrows[i];
-    from = arrow[0];
-    to = arrow[1];
-    average_value = (scalar_field[to] - scalar_field[from]);
-    x[from] += average_value * dxhat[i] * PI * dlength[i]/neighbor_count[from];
-    y[from] += average_value * dyhat[i] * PI * dlength[i]/neighbor_count[from];
-    z[from] += average_value * dzhat[i] * PI * dlength[i]/neighbor_count[from];
-  }
-  var inverse_volume = 1 / (PI * (average_distance/2) * (average_distance/2));
-  for (var i = 0, li = scalar_field.length; i < li; i++) {
-    x[i] *= inverse_volume;
-    y[i] *= inverse_volume;
-    z[i] *= inverse_volume;
-  }
+  for (var i = 0, li = arrows.length; i < li; i++) { 
+    arrow = arrows[i]; 
+    from = arrow[0]; 
+    to = arrow[1]; 
+    average_value = (scalar_field[to] - scalar_field[from]); 
+    x[from] += average_value * dxhat[i] * PI * dlength[i]/neighbor_count[from]; 
+    y[from] += average_value * dyhat[i] * PI * dlength[i]/neighbor_count[from]; 
+    z[from] += average_value * dzhat[i] * PI * dlength[i]/neighbor_count[from]; 
+  } 
+  var inverse_volume = 1 / (PI * (average_distance/2) * (average_distance/2)); 
+  for (var i = 0, li = scalar_field.length; i < li; i++) { 
+    x[i] *= inverse_volume; 
+    y[i] *= inverse_volume; 
+    z[i] *= inverse_volume; 
+  } 
 
   return result;
 };
