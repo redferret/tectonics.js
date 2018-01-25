@@ -2996,6 +2996,36 @@ VectorRaster.get_nearest_values = function(value_raster, pos_raster, result) {
  }
  return result;
 }
+// The Accounting namespaces provide operations commonly used in accounting software
+// i.e. where ever there are conserved quantities that need to be transferred and allocated
+// All input are raster objects, e.g. VectorRaster or Float32Raster
+Float32RasterAccounting = {};
+Float32RasterAccounting.priority_allocation = function(amount, priority1_size, priority1_allocation, priority2_allocation) {
+    if (!(amount instanceof Float32Array)) { throw "amount" + ' is not a ' + "Float32Array"; }
+    if (!(priority1_size instanceof Float32Array)) { throw "priority1_size" + ' is not a ' + "Float32Array"; }
+    if (!(priority2_size instanceof Float32Array)) { throw "priority2_size" + ' is not a ' + "Float32Array"; }
+    if (!(priority1_allocation instanceof Float32Array)) { throw "priority1_allocation" + ' is not a ' + "Float32Array"; }
+    if (!(priority2_allocation instanceof Float32Array)) { throw "priority2_allocation" + ' is not a ' + "Float32Array"; }
+    var amount_i = 0.0;
+    var overflow_i = 0.0;
+    var priority1_size_i = 0.0;
+    for (var i = 0, li = amount.length; i < li; i++) {
+     amount_i = amount[i];
+     priority1_size_i = priority1_size[i];
+     priority1_allocation[i] = amount_i > priority1_size_i? priority1_size_i : amount_i;
+  overflow_i = priority1_size_i - amount_i;
+  priority2_allocation[i] = overflow_i < 0? 0 : overflow_i;
+    }
+}
+Float32RasterAccounting.transaction = function (amount, from, to) {
+    if (!(from instanceof Float32Array)) { throw "from" + ' is not a ' + "Float32Array"; }
+    if (!(amount instanceof Float32Array)) { throw "amount" + ' is not a ' + "Float32Array"; }
+    if (!(to instanceof Float32Array)) { throw "to" + ' is not a ' + "Float32Array"; }
+    for (var i = 0, li = amount.length; i < li; i++) {
+     from[i] -= amount;
+     to[i] += amount;
+    }
+}
 // The FieldInterpolation namespaces provide operations commonly used in interpolation for computer graphics
 // All input are raster objects, e.g. VectorRaster or Float32Raster
 var Float32RasterInterpolation = {};
