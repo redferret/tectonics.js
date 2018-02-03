@@ -115,127 +115,142 @@ TectonicsModeling.get_displacement = function(thickness, density, mantleDensity,
  	}
  	return displacement;
 }
-// "weathering" is the process by which rock is converted to sediment
-TectonicsModeling.get_weathering_rate = function(sial, sediment, displacement, sealevel, result, scratch){
-	result = result || Float32Raster(displacement.grid);
+
+TectonicsModeling.get_erosion_rate = function(
+		displacement, sealevel, timestep,
+		sediment, 		sial, 		sima, 
+		sediment_delta, sial_delta, sima_delta, 
+		scratch){
 	scratch = scratch || Float32Raster(displacement.grid);
 
 	var precipitation = 7.8e5;
 	// ^^^ measured in meters of rain per million years
 	// global land average from wikipedia
-	var weathering_factor = 1.8e-7; 
-	// ^^^ the rate of weathering per the rate of rainfall in that place
+	var erosiveFactor = 1.8e-7; 
+	// ^^^ the rate of erosion per the rate of rainfall in that place
 	// measured in fraction of height difference per meters of rain per million years
-	var critical_sediment_thickness = 10;
-	// ^^^ the sediment thickness (in meters) at which bedrock weathering no longer occurs
 
-	var sial_density = 2700; // kg/m^3
-	var sediment_density = 2500 // kg/m^2, from Simoes et al. 2010
-	var earth_surface_gravity = 9.8; // m/s^2
-	var surface_gravity = 9.8; // m/s^2
-	
-	var water_height = ScalarField.max_scalar(displacement, sealevel);
+	var sediment_density = 2500;
+	var sial_density = 2700;
+	var sima_density = 2900;
 
-	var height_gradient = ScalarField.gradient(water_height);
-	// NOTE: result array does double duty for performance reasons
-	var greatest_slope = result;
-	VectorField.magnitude(height_gradient, greatest_slope);
-	var greatest_height_difference = result;
-	ScalarField.mult_scalar(greatest_slope, greatest_slope.grid.average_distance, greatest_height_difference);
+	// NOTE: erosion array does double duty for performance reasons
+	var water_height = scratch;
+	ScalarField.max_scalar(displacement, sealevel, water_height);
 
-	ScalarField.mult_scalar(
-		greatest_height_difference, 
-		weathering_factor * 			// apply weathering factor to get height change per unit precip 
-		precipitation * 				// apply precip to get height change
-		sial_density * 					// apply density to get mass converted to sediment
-		surface_gravity/earth_surface_gravity, //correct for planet's gravity
-		result)
-	
-	var bedrock_exposure = scratch;
-	ScalarField.div_scalar(sediment, -sediment_density * critical_sediment_thickness, bedrock_exposure);
-	ScalarField.add_scalar(bedrock_exposure, 1, bedrock_exposure);
-	ScalarField.max_scalar(bedrock_exposure, 0, bedrock_exposure);
 
-	ScalarField.mult_field(result, bedrock_exposure, result);
-	
-	ScalarField.min_field(result, sial, result);
-	ScalarField.max_scalar(result, 0, result);
-	return result;
+	var arrows = displacement.grid.arrows;
+	var arrow;
+	var from = 0;
+	var to = 0;
+	var height_difference = 0.0;
+	var outbound_height_transfer_i = 0.0;
+
+	var outbound_height_transfer = Float32Raster(displacement.grid);
+	Float32Raster.fill(outbound_height_transfer, 0);
+
+	var sediment_thickness = 0;
+	var sial_thickness = 0;
+	var sima_thickness = 0;
+
+	var outbound_sediment_thickness_i;
+	var outbound_sial_thickness_i;
+	var outbound_sima_thickness_i;
+
+	var outbound_sediment_fraction = Float32Raster(displacement.grid);
+	var outbound_sial_fraction = Float32Raster(displacement.grid);
+	var outbound_sima_fraction = Float32Raster(displacement.grid);
+
+	// arrow_height_difference = ScalarField.arrow_differential(water_height); 
+    // outbound_height_transfer = VectorRaster.OfLength(arrow_height_difference.length, undefined)
+    
+    // step 1: find outbound height transferred from each cell
+	for (var i=0, li=arrows.length; i<li; ++i) {
+	    arrow = arrows[i];
+	    from = arrow[0];
+	    to = arrow[1];
+	    height_difference = water_height[from] - water_height[to];
+	    outbound_height_transfer[from] += height_difference > 0? erosiveFactor * height_difference * precipitation * timestep : 0;
+	}
+	// step 2: figure out which pools (sediment/sial/sima) to draw from when we transfer outbound height
+	// we prefer to draw from pools that lie on top, e.g. we draw from sediment first, sial second, sima third
+	for (var i=0, li=outbound_height_transfer.length; i<li; ++i) {
+		sediment_thickness = sediment[i] / sediment_density;
+		sial_thickness = sial[i] / sial_density;
+		sima_thickness = sima[i] / sima_density;
+
+		outbound_height_transfer_i = outbound_height_transfer[i];
+		outbound_sediment_thickness_i = outbound_height_transfer_i > sediment_thickness? sediment_thickness : outbound_height_transfer_i;
+		outbound_height_transfer_i -= outbound_sediment_thickness_i;
+		outbound_sial_thickness_i = outbound_height_transfer_i > sial_thickness? sial_thickness : outbound_height_transfer_i;
+		outbound_height_transfer_i -= outbound_sial_thickness_i;
+		outbound_sima_thickness_i = outbound_height_transfer_i > sima_thickness? sima_thickness : outbound_height_transfer_i;
+		//TODO: assert outbound_height_transfer_i == 0
+
+		outbound_height_transfer_i = outbound_height_transfer[i];
+		outbound_sediment_fraction[i] = outbound_sediment_thickness_i / outbound_height_transfer_i;
+		outbound_sial_fraction[i] = outbound_sial_thickness_i / outbound_height_transfer_i;
+		outbound_sima_fraction[i] = outbound_sima_thickness_i / outbound_height_transfer_i;
+	}
+
+	Float32Raster.fill(sediment_delta, 0);
+	Float32Raster.fill(sima_delta, 0);
+	Float32Raster.fill(sial_delta, 0);
+
+	var transfer = 0.0;
+
+	// step 3: 
+	for (var i=0, li=arrows.length; i<li; ++i) {
+	    arrow = arrows[i];
+	    from = arrow[0];
+	    to = arrow[1];
+	    height_difference = water_height[from] - water_height[to];
+	    outbound_height_transfer_i = height_difference > 0? erosiveFactor * height_difference * precipitation * timestep : 0;
+
+	    if (!isNaN(outbound_sediment_fraction[from])) { 
+	    	transfer = outbound_height_transfer_i * outbound_sediment_fraction[from] * sediment_density;
+		    sediment_delta[from] -= transfer;
+		    sediment_delta[to] += transfer;
+	    }
+
+	    if (!isNaN(outbound_sial_fraction[from])) { 
+	    	transfer = outbound_height_transfer_i * outbound_sial_fraction[from] * sial_density;
+		    sial_delta[from] -= transfer;
+		    sediment_delta[to] += transfer; // NOTE: sial converts to sediment upon transfer
+	    }
+
+	    if (!isNaN(outbound_sima_fraction[from])) { 
+	    	transfer = outbound_height_transfer_i * outbound_sima_fraction[from] * sima_density;
+		    sima_delta[from] -= transfer;
+		    sima_delta[to] += transfer;
+	    }
+	}
 }
-var water_discharge = 1e6;
-// "erosion" is the process by which sediment is transported
-TectonicsModeling.get_erosion_rate = function(sediment, displacement, sealevel, result, scratch){
-	var grid = displacement.grid;
+TectonicsModeling.get_erosion_rate = function(
+		displacement, sealevel, timestep,
+		sediment, 		sial, 		sima, 
+		sediment_delta, sial_delta, sima_delta, 
+		scratch){
+	sial_delta = sial_delta || Float32Raster(displacement.grid);
+	scratch = scratch || Float32Raster(displacement.grid);
 
-	result = result || Float32Raster(grid);
-	scratch = scratch || Float32Raster(grid);
+	var precipitation = 7.8e5;
+	// ^^^ measured in meters of rain per million years
+	// global land average from wikipedia
+	var erosiveFactor = 1.8e-7; 
+	// ^^^ the rate of erosion per the rate of rainfall in that place
+	// measured in fraction of height difference per meters of rain per million years
+	var sial_density = 2700;
 
-	var precip = 7.8e5;
-	var erosive_factor = 3.9e-3; // measured as volumetric sediment discharge per volumetric water discharge
-
-	var earth_surface_gravity = 9.8; // m/s^2
-	var surface_gravity = 9.8; // m/s^2
-
-	var sediment_density = 2500 // kg/m^2, from Simoes et al. 2010 
+	// NOTE: erosion array does double duty for performance reasons
+	var height_difference = sial_delta;
+	var water_height = scratch;
+	ScalarField.max_scalar(displacement, sealevel, water_height);
+	ScalarField.average_difference(water_height, height_difference);
+	ScalarField.mult_scalar(height_difference, precipitation * timestep * erosiveFactor * sial_density, sial_delta)
+	// console.log(Float32Dataset.average(erosion));
+	return sial_delta;
 	
-	var water_height = ScalarField.max_scalar(displacement, sealevel);
-	var gradient = ScalarField.gradient(water_height);
-
-	// find slope in meters per radian
-	var greatest_slope = VectorField.magnitude(gradient); 
-	// find slope in meters per meter (divide by radius in meters)
-	ScalarField.div_scalar(greatest_slope, -world.radius, greatest_slope); 
-
-	var greatest_slope_direction = VectorField.normalize(gradient); 
-
-	//// "water discharge" is the volumetric quantity of water that flows downhill through a point 
-	//// TODO: turn this into a scratch param 
-	//water = Float32Raster(displacement.grid); 
-	//water_flow = VectorRaster(displacement.grid); 
-	//water_flux = Float32Raster(displacement.grid); 
-	//water_discharge = Float32Raster(displacement.grid); 
-	//// start with precip 
-	//Float32Raster.fill(water, precip); 
-	//Float32Raster.fill(water_discharge, precip); 
-	//// repeatedly apply height-governed convection (∇⋅(Qw dx ∇h/|∇h|))  
-	//// where Qw is water discharge per timestep, dx is grid cell length, and h is height 
-	//// TODO: turn this into a scratch param 
-	//for (var i = 0; i < 5; i++) { 
-	//	VectorField.mult_scalar_field(greatest_slope_direction, water, water_flow); 
-	//	VectorField.divergence(water_flow, water_flux); 
-	//	ScalarField.mult_scalar(water_flux, grid.average_distance, water_flux); 
-	//	ScalarField.add_field(water, water_flux, water); 
-	//	ScalarField.max_scalar(water_flux, 0, water_flux); 
-	//	ScalarField.add_field(water_discharge, water_flux, water_discharge); 
-	//}
-
-	// Great Scott! It's the flux capacity, Marty! 
-	// "flux capacity" is the maximum rate at which sediment can be transported 
-	//var sediment_flux_capacity = scratch; 
-	//ScalarField.mult_field( 
-	//greatest_slope, 
-	//water_discharge, 
-	//scratch 
-	//) 
-	var sediment_flux_capacity = ScalarField.mult_scalar( 
-	greatest_slope,
-	// scratch,
-	water_discharge * 
-	erosive_factor *   // apply erosive factor to get volume flux of sediment 
-	sediment_density *  // apply sediment density to get mass flux of sediment 
-	surface_gravity/earth_surface_gravity // correct for planet's gravity 
-	); 
-
-	// "flux magnitude" is the actual quantity at which sediment is transported 
-	// i.e. you can't transport more sediment than what exists in a cell 
-	var sediment_flux_magnitude = ScalarField.min_field(sediment_flux_capacity, sediment); 
-
-	var sediment_flux = VectorField.mult_scalar_field(greatest_slope_direction, sediment_flux_magnitude); 
-
-	var erosion_rate = result;
-	VectorField.divergence(sediment_flux, erosion_rate); // apply divergence to get kg/My 
-	ScalarField.mult_scalar(erosion_rate, grid.average_distance*.5, erosion_rate); // apply average distance between cells to get kg * radians/My 
-	return erosion_rate; 
 }
 // get a map of plates using image segmentation and binary morphology
 TectonicsModeling.get_plate_map = function(vector_field, segment_num, min_segment_size, segments) {

@@ -143,7 +143,6 @@ var World = (function() {
 		var local_pos_of_global_cells = VectorRaster(grid); 
 		var localized_subductability = Float32Raster(grid); 
 		var localized_erosion = Float32Raster(grid); 
-		var localized_weathering = Float32Raster(grid); 
 		var localized_accretion = Float32Raster(grid); 
 
 		//global rifting/detaching variables
@@ -189,34 +188,23 @@ var World = (function() {
 		var globalized_accretion = Float32Raster(grid); 
 		fill(globalized_accretion, 0);
 
-		var globalized_weathering_rate = Float32Raster(grid);
-		TectonicsModeling.get_weathering_rate(
-			world.unsubductable,
-			world.unsubductable_sediment, 
-			displacement, 
-			world.SEALEVEL, 
-			globalized_weathering_rate, 
-			globalized_scalar_field
-		);
-		var globalized_weathering = globalized_weathering_rate;
-		mult_scalar(globalized_weathering_rate, timestep, globalized_weathering);
-
-		var globalized_erosion_rate = Float32Raster(grid);
-		TectonicsModeling.get_erosion_rate(
-			world.unsubductable_sediment, 
-			displacement, 
-			world.SEALEVEL, 
-			globalized_erosion_rate, 
-			globalized_scalar_field
-		);
-		var globalized_erosion = globalized_erosion_rate;
-		mult_scalar(globalized_erosion_rate, timestep, globalized_erosion);
-
 		var RIFT = true;
 		var DETACH = true;
-		var WEATHER = true;
 		var ERODE = true;
 		var ACCRETE = true;
+
+
+		var globalized_erosion_sediment_delta = Float32Raster(grid);
+		var globalized_erosion_sial_delta = Float32Raster(grid);
+		var globalized_erosion_sima_delta = Float32Raster(grid);
+		if(ERODE){
+			// debugger
+			TectonicsModeling.get_erosion_rate(
+					displacement, world.SEALEVEL, timestep,
+					world.unsubductable_sediment, 		world.unsubductable, 		  world.subductable, 
+					globalized_erosion_sediment_delta, globalized_erosion_sial_delta, globalized_erosion_sima_delta, 
+					globalized_scalar_field)
+		}
 
 	    //shared variables for detaching and rifting
 		// op 	operands																result
@@ -290,16 +278,18 @@ var World = (function() {
 			equals 		(plate_map, i, 												globalized_is_on_top);
         	resample 	(globalized_is_on_top, global_ids_of_local_cells,			localized_is_on_top);
 
-			//weathering
-			if(WEATHER) {
-				resample_f32(globalized_weathering, global_ids_of_local_cells,				localized_weathering);
-				add_term 	(plate.unsubductable_sediment, localized_weathering, localized_is_on_top,		plate.unsubductable_sediment);
-				sub_term 	(plate.unsubductable, localized_weathering, localized_is_on_top,		plate.unsubductable);
-			}
 			//erode
 			if(ERODE) {
-				resample_f32(globalized_erosion, global_ids_of_local_cells,				localized_erosion);
-				sub_term 	(plate.unsubductable_sediment, localized_erosion, localized_is_on_top,		plate.unsubductable_sediment);
+            	resample_f32(globalized_erosion_sial_delta, global_ids_of_local_cells,				localized_erosion);
+	        	add_term 	(plate.unsubductable, localized_erosion, localized_is_on_top,		plate.unsubductable);
+
+				// debugger
+				//resample_f32(globalized_erosion_sediment_delta, global_ids_of_local_cells,					localized_erosion);
+				//add_term 	(plate.unsubductable_sediment, 		localized_erosion, localized_is_on_top,		plate.unsubductable_sediment);
+				//resample_f32(globalized_erosion_sial_delta, 	global_ids_of_local_cells,					localized_erosion);
+				//add_term 	(plate.unsubductable, 				localized_erosion, localized_is_on_top,		plate.unsubductable_sediment);
+				//resample_f32(globalized_erosion_sima_delta, 	global_ids_of_local_cells,					localized_erosion);
+				//add_term 	(plate.subductable, 				localized_erosion, localized_is_on_top,		plate.unsubductable_sediment);
 			}
 	        //accrete, part 2
 	        if(ACCRETE) {

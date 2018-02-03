@@ -23,7 +23,7 @@ function Plate(params)
 	this.local_pos_of_global_cells = VectorRaster(this.grid);
 }
 Plate.prototype.move = function(timestep){
-	timestep = 0
+	// timestep = 0
 	this.increment = this.angularSpeed * timestep;
 	
 	var rotation_matrix = Matrix.RotationAboutAxis( this.eulerPole.x, this.eulerPole.y, this.eulerPole.z, this.angularSpeed * timestep );
