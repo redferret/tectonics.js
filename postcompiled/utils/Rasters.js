@@ -381,8 +381,8 @@ Float32Dataset.normalize = function(dataset, result, min_new, max_new) {
 }
 Float32Dataset.rescale = function(dataset, result, max_new) {
   result = result || Float32Raster(dataset.grid);
-  var max = Float32Dataset.max(dataset);
   var max_new = max_new || 1;
+  var max = Float32Dataset.max(dataset) || max_new;
   var scaling_factor = max_new / max;
   if (!(dataset instanceof Float32Array)) { throw "dataset" + ' is not a ' + "Float32Array"; }
   if (!(result instanceof Float32Array)) { throw "result" + ' is not a ' + "Float32Array"; }
@@ -2999,7 +2999,7 @@ VectorRaster.get_nearest_values = function(value_raster, pos_raster, result) {
 // The Accounting namespaces provide operations commonly used in accounting software
 // i.e. where ever there are conserved quantities that need to be transferred and allocated
 // All input are raster objects, e.g. VectorRaster or Float32Raster
-Float32RasterAccounting = {};
+var Float32RasterAccounting = {};
 Float32RasterAccounting.priority_allocation = function(amount, priority1_size, priority1_allocation, priority2_allocation) {
     if (!(amount instanceof Float32Array)) { throw "amount" + ' is not a ' + "Float32Array"; }
     if (!(priority1_size instanceof Float32Array)) { throw "priority1_size" + ' is not a ' + "Float32Array"; }
@@ -3021,9 +3021,24 @@ Float32RasterAccounting.transaction = function (amount, from, to) {
     if (!(from instanceof Float32Array)) { throw "from" + ' is not a ' + "Float32Array"; }
     if (!(amount instanceof Float32Array)) { throw "amount" + ' is not a ' + "Float32Array"; }
     if (!(to instanceof Float32Array)) { throw "to" + ' is not a ' + "Float32Array"; }
+    var amount_i = 0.0;
     for (var i = 0, li = amount.length; i < li; i++) {
-     from[i] -= amount;
-     to[i] += amount;
+        amount_i = amount[i];
+        from[i] -= amount_i;
+        to[i] += amount_i;
+    }
+}
+Float32RasterAccounting.transaction_at_selection = function (amount, from, to, selection) {
+    if (!(from instanceof Float32Array)) { throw "from" + ' is not a ' + "Float32Array"; }
+    if (!(amount instanceof Float32Array)) { throw "amount" + ' is not a ' + "Float32Array"; }
+    if (!(to instanceof Float32Array)) { throw "to" + ' is not a ' + "Float32Array"; }
+    var amount_i = 0.0;
+    for (var i = 0, li = amount.length; i < li; i++) {
+        if (selection[i] === 1) {
+            amount_i = amount[i];
+            from[i] -= amount_i;
+            to[i] += amount_i;
+        }
     }
 }
 // The FieldInterpolation namespaces provide operations commonly used in interpolation for computer graphics

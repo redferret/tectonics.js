@@ -2,7 +2,7 @@
 // The Accounting namespaces provide operations commonly used in accounting software
 // i.e. where ever there are conserved quantities that need to be transferred and allocated
 // All input are raster objects, e.g. VectorRaster or Float32Raster
-Float32RasterAccounting = {};
+var Float32RasterAccounting = {};
 Float32RasterAccounting.priority_allocation = function(amount, priority1_size, priority1_allocation, priority2_allocation) {
     ASSERT_IS_ARRAY(amount, Float32Array)
     ASSERT_IS_ARRAY(priority1_size, Float32Array)
