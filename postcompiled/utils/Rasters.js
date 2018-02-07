@@ -2586,6 +2586,52 @@ Float32Raster.set_ids_to_values = function(raster, id_array, value_array) {
   }
   return raster;
 }
+//TODO: move this to its own namespace: Float32ScalarTransport
+Float32Raster.assert_nonnegative_quantity = function(quantity) {
+  if (!(quantity instanceof Float32Array)) { throw "quantity" + ' is not a ' + "Float32Array"; }
+  var quantity_i = 0.0;
+  for (var i=0, li=quantity.length; i<li; ++i) {
+    if (quantity[i] < 0) {
+      debugger;
+    }
+  }
+}
+Float32Raster.assert_conserved_quantity_delta = function(delta, threshold) {
+  if (!(delta instanceof Float32Array)) { throw "delta" + ' is not a ' + "Float32Array"; }
+  var average = Float32Dataset.average(delta);
+  if (average * average > threshold * threshold) {
+    debugger;
+  }
+}
+Float32Raster.assert_nonnegative_quantity_delta = function(delta, quantity) {
+  if (!(delta instanceof Float32Array)) { throw "delta" + ' is not a ' + "Float32Array"; }
+  if (!(quantity instanceof Float32Array)) { throw "quantity" + ' is not a ' + "Float32Array"; }
+  for (var i=0, li=delta.length; i<li; ++i) {
+    if (-delta[i] > quantity[i]) {
+      debugger;
+    }
+  }
+}
+Float32Raster.fix_nonnegative_quantity = function(quantity) {
+  if (!(quantity instanceof Float32Array)) { throw "quantity" + ' is not a ' + "Float32Array"; }
+  ScalarField.min_scalar(quantity, 0);
+}
+Float32Raster.fix_conserved_quantity_delta = function(delta, threshold) {
+  if (!(delta instanceof Float32Array)) { throw "delta" + ' is not a ' + "Float32Array"; }
+  var average = Float32Dataset.average(delta);
+  if (average * average > threshold * threshold) {
+    ScalarField.sub_scalar(delta, average, delta);
+  }
+}
+Float32Raster.fix_nonnegative_quantity_delta = function(delta, quantity) {
+  if (!(delta instanceof Float32Array)) { throw "delta" + ' is not a ' + "Float32Array"; }
+  if (!(quantity instanceof Float32Array)) { throw "quantity" + ' is not a ' + "Float32Array"; }
+  for (var i=0, li=delta.length; i<li; ++i) {
+    if (-delta[i] > quantity[i]) {
+      delta[i] = -quantity[i];
+    }
+  }
+}
 // Uint16Raster represents a grid where each cell contains a 32 bit floating point value
 // A Uint16Raster is composed of two parts:
 //    The first is a object of type Grid, representing a collection of vertices that are connected by edges
