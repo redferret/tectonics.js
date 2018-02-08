@@ -252,6 +252,60 @@ TectonicsModeling.get_erosion_rate = function(
 	return sial_delta;
 	
 }
+TectonicsModeling.get_erosion = function(
+		displacement, sealevel, timestep,
+		sediment, 		sial, 		sima, 
+		sediment_delta, sial_delta, sima_delta, 
+		scratch){
+	sial_delta = sial_delta || Float32Raster(displacement.grid);
+	scratch = scratch || Float32Raster(displacement.grid);
+
+	var precipitation = 7.8e5;
+	// ^^^ measured in meters of rain per million years
+	// global land average from wikipedia
+	var erosiveFactor = 1.8e-7; 
+	// ^^^ the rate of erosion per the rate of rainfall in that place
+	// measured in fraction of height difference per meters of rain per million years
+	var sial_density = 2700;
+
+	var water_height = scratch;
+	ScalarField.max_scalar(displacement, sealevel, water_height);
+
+	var outbound_mass_transfer = Float32Raster(displacement.grid);
+	Float32Raster.fill(outbound_mass_transfer, 0);
+
+	var outbound_sediment_fraction = Float32Raster(displacement.grid);
+	var outbound_sial_fraction = Float32Raster(displacement.grid);
+	var outbound_sima_fraction = Float32Raster(displacement.grid);
+
+	var arrows = displacement.grid.arrows;
+	var arrow;
+	var from = 0;
+	var to = 0;
+	var height_difference = 0.0;
+	var outbound_mass_transfer_i = 0.0;
+  	var neighbor_count = displacement.grid.neighbor_count;
+
+	for (var i=0, li=arrows.length; i<li; ++i) {
+	    arrow = arrows[i];
+	    from = arrow[0];
+	    to = arrow[1];
+	    height_difference = water_height[from] - water_height[to];
+	    outbound_mass_transfer[from] += height_difference > 0? height_difference * precipitation * timestep * erosiveFactor * sial_density / neighbor_count[from] : 0;
+	}
+	for (var i=0, li=outbound_mass_transfer.length; i<li; ++i) {
+		outbound_sial_fraction[i] = outbound_mass_transfer[i] > sial[i]? (sial[i] > 0.0? sial[i] / outbound_mass_transfer[i] : 0.0) : 1.0;
+	}
+	for (var i=0, li=arrows.length; i<li; ++i) {
+	    arrow = arrows[i];
+	    from = arrow[0];
+	    to = arrow[1];
+	    height_difference = water_height[from] - water_height[to];
+	    outbound_height_transfer_i = height_difference > 0? height_difference * precipitation * timestep * erosiveFactor * sial_density * outbound_sial_fraction[from] / neighbor_count[from] : 0;
+	    sial_delta[from] -= outbound_height_transfer_i;
+	    sial_delta[to] += outbound_height_transfer_i;
+	}
+}
 // get a map of plates using image segmentation and binary morphology
 TectonicsModeling.get_plate_map = function(vector_field, segment_num, min_segment_size, segments) {
   var segments = segments || Uint8Raster(vector_field.grid);

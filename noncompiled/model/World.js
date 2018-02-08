@@ -184,6 +184,7 @@ var World = (function() {
 		var add_term = ScalarField.add_field_term;
 		var sub_term = ScalarField.sub_field_term;
 		var add = ScalarField.add_field;
+		var fix_nonnegative_quantity_delta = Float32Raster.fix_nonnegative_quantity_delta;
 
 		var globalized_accretion = Float32Raster(grid); 
 		fill(globalized_accretion, 0);
@@ -278,19 +279,28 @@ var World = (function() {
 			equals 		(plate_map, i, 												globalized_is_on_top);
         	resample 	(globalized_is_on_top, global_ids_of_local_cells,			localized_is_on_top);
 
-			//erode
-			if(ERODE) {
-            	resample_f32(globalized_erosion_sial_delta, global_ids_of_local_cells,				localized_erosion);
+	        //erode
+	        if(ERODE) {
+	        	//sial
+            	resample_f32(globalized_erosion_sial_delta, global_ids_of_local_cells,			localized_erosion);
+		        // enforce constraint: erosion should never exceed amount of rock available
+		        // get_erosion() guarantees against this, but plate motion sometimes causes violations to this constraint
+		        // violations to constraint are usually small, so we just modify erosion after the fact to preserve the constraint
+		        fix_nonnegative_quantity_delta 
+		        			(localized_erosion, plate.unsubductable, 							localized_erosion);
+		        // assert_nonnegative_quantity(plate.unsubductable);
 	        	add_term 	(plate.unsubductable, localized_erosion, localized_is_on_top,		plate.unsubductable);
+		        // assert_nonnegative_quantity(plate.unsubductable);
 
-				// debugger
-				//resample_f32(globalized_erosion_sediment_delta, global_ids_of_local_cells,					localized_erosion);
-				//add_term 	(plate.unsubductable_sediment, 		localized_erosion, localized_is_on_top,		plate.unsubductable_sediment);
-				//resample_f32(globalized_erosion_sial_delta, 	global_ids_of_local_cells,					localized_erosion);
-				//add_term 	(plate.unsubductable, 				localized_erosion, localized_is_on_top,		plate.unsubductable_sediment);
-				//resample_f32(globalized_erosion_sima_delta, 	global_ids_of_local_cells,					localized_erosion);
-				//add_term 	(plate.subductable, 				localized_erosion, localized_is_on_top,		plate.unsubductable_sediment);
-			}
+
+		        //sediment
+		        //resample_f32(globalized_erosion_sediment_delta, global_ids_of_local_cells,					localized_erosion);
+		        //add_term 	(plate.unsubductable_sediment, 		localized_erosion, localized_is_on_top,		plate.unsubductable_sediment);
+
+		        //sima
+		        //resample_f32(globalized_erosion_sima_delta, 	global_ids_of_local_cells,					localized_erosion);
+		        //add_term 	(plate.subductable, 				localized_erosion, localized_is_on_top,		plate.unsubductable_sediment);
+	        }
 	        //accrete, part 2
 	        if(ACCRETE) {
             	resample_f32(globalized_accretion, global_ids_of_local_cells,			localized_accretion);
